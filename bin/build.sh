@@ -14,7 +14,7 @@ rm -rf content/policies
 # The local git repository will be used in tree.js
 # to figure out the last modified date of documentation files.
 NPM_VERSION=`npm view npm version`
-git clone --branch v${NPM_VERSION} git@github.com:npm/npm.git npm-source
+git clone --branch v${NPM_VERSION} https://github.com/npm/npm.git npm-source
 
 cp -r npm-source/doc/cli content/
 cp -r npm-source/doc/files content/
