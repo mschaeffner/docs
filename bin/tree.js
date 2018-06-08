@@ -5,6 +5,7 @@
 
 var path = require('path')
 var fs = require('fs')
+var child_process = require("child_process")
 var strftime = require('strftime')
 var marky = require('marky-markdown')
 var frontmatter = require('html-frontmatter')
@@ -41,9 +42,26 @@ emitter.on('file', function (filepath, stat) {
     content: fs.readFileSync(filepath, 'utf-8')
   }
 
+  // Infer section from top directory
+  if (page.filename.match(/\//)) {
+    page.section = page.filename.split('/')[0]
+  }
+
   // Get modified date
-  page.modified = fs.statSync(filepath).mtime
-  page.modifiedPretty = strftime('%B %d, %Y', page.modified)
+  var datePattern = '%B %d, %Y'
+  if (['cli', 'files', 'misc'].indexOf(page.section) > -1) {
+    // Files in these directories were copied from git repo https://github.com/npm/npm
+    // so we use commit timestamps as last modified date. We can not rely
+    // on file system timestamps, because this would be 1985-10-26.
+    // See https://github.com/npm/docs/issues/990
+    // and https://github.com/npm/npm/issues/20439
+    var command = "cd npm-source/doc && git log -1 --pretty=format:%cI -- " + page.filename
+    page.modified = child_process.execSync(command).toString()
+    page.modifiedPretty = strftime(datePattern, new Date(page.modified))
+  } else {
+    page.modified = fs.statSync(filepath).mtime
+    page.modifiedPretty = strftime(datePattern, page.modified)
+  }
 
   // Look for HTML frontmatter
   merge(page, frontmatter(page.content))
@@ -75,11 +93,6 @@ emitter.on('file', function (filepath, stat) {
   // Convert npm-cmd(#) style "links" to anchor elements"
   var prefix_hash = { 1: 'cli', 5: 'files', 7: 'misc' }
   page.content = mansplain({ input: page.content, prefix: prefix_hash })
-
-  // Infer section from top directory
-  if (page.filename.match(/\//)) {
-    page.section = page.filename.split('/')[0]
-  }
 
   // In what repository does this doc live?
   if (['cli', 'files', 'misc'].indexOf(page.section) > -1) {
